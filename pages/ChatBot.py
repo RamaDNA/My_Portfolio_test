@@ -18,7 +18,7 @@ def load_knowledge_base():
     loader = PyPDFLoader("data/profile.pdf")  # Pastikan file profile.pdf ada di folder 'data'
     documents = loader.load()
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
     docs = splitter.split_documents(documents)
 
     # 🔥 load model embeddings dari huggingface (pakai token via env var)
