@@ -1,0 +1,9 @@
+streamlit==1.21.0
+streamlit-lottie==0.0.8
+langchain==0.0.138
+faiss-cpu==1.7.2
+transformers==4.29.2
+sentence-transformers==2.2.2
+requests==2.28.1
+pandas==1.5.3
+matplotlib==3.7.0
