@@ -39,10 +39,6 @@ if query:
         answer = related_docs[0].page_content
         st.write("💬", answer)
         
-        with st.expander("👀 Lihat dokumen relevan lainnya"):
-            for i, doc in enumerate(related_docs[1:]):
-                st.write(f"Doc {i+2}:")
-                st.write(doc.page_content)
     else:
         st.warning("Tidak ditemukan jawaban yang relevan.")
 else:
