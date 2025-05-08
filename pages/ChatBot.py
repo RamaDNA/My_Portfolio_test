@@ -1,55 +1,60 @@
 import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.chains import ConversationalRetrievalChain
-from langchain.llms import HuggingFaceHub
+from langchain.embeddings import HuggingFaceEmbeddings
+from transformers import pipeline
 import os
+from huggingface_hub import InferenceClient
 
-# 🔑 Token dari secrets
+# 🔑 Ambil token dari secrets dan set ke environment variable
 hf_token = st.secrets["HUGGINGFACE_TOKEN"]
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
 
-st.title("🤖 Chatbot Profile (Chat Interaktif)")
+st.title("🤖 Chatbot Profile (Langsung Tanya, Gratis)")
 
-# --- Load PDF dan build retriever
+# --- Load PDF sekali di awal
 @st.cache_resource
-def load_retriever():
-    loader = PyPDFLoader("data/profile.pdf")
+def load_knowledge_base():
+    loader = PyPDFLoader("data/profile.pdf")  # Pastikan file profile.pdf ada di folder 'data'
     documents = loader.load()
-    
-    splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     docs = splitter.split_documents(documents)
 
+    # 🔥 load model embeddings dari huggingface
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
     db = FAISS.from_documents(docs, embeddings)
-    
-    return db.as_retriever()
+    retriever = db.as_retriever()
 
-retriever = load_retriever()
+    return retriever
 
-# --- Load LLM dari huggingface hub
-llm = HuggingFaceHub(repo_id="google/flan-t5-base", model_kwargs={"temperature":0, "max_length":512})
+retriever = load_knowledge_base()
 
-# --- ConversationalRetrievalChain
-qa_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=retriever)
+# --- Define LLM menggunakan HuggingFace API
+client = InferenceClient(token=hf_token)
 
-# --- Simpan chat history di session
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# Load model untuk chat response
+def chat_response(query):
+    response = client.text_generation(query, model="google/flan-t5-small")
+    return response[0]['generated_text']
 
-# --- UI Input
-query = st.text_input("💬 Kamu:", "")
-
+# --- Input pertanyaan user
+query = st.text_input("Tanyakan apapun tentang saya:")
 if query:
-    # Jalankan chain
-    result = qa_chain({"question": query, "chat_history": st.session_state.chat_history})
-    
-    # Tambah ke history
-    st.session_state.chat_history.append((query, result['answer']))
+    # Mengambil dokumen terkait menggunakan retriever dari Langchain
+    related_docs = retriever.get_relevant_documents(query)
+    context = " ".join([doc.page_content for doc in related_docs])
 
-# --- Tampilkan semua history
-for i, (user_q, bot_a) in enumerate(st.session_state.chat_history):
-    st.markdown(f"**Kamu:** {user_q}")
-    st.markdown(f"**Bot:** {bot_a}")
+    # Jawaban berdasarkan context
+    chatbot_answer = chat_response(query + " " + context)
+    st.write("💬", chatbot_answer)
+
+    # Menampilkan dokumen yang relevan
+    with st.expander("👀 Lihat dokumen terkait"):
+        for i, doc in enumerate(related_docs):
+            st.write(f"Doc {i+1}:")
+            st.write(doc.page_content)
+else:
+    st.info("Masukkan pertanyaan di atas.")
