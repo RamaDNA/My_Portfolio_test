@@ -1,4 +1,4 @@
-streamlit==1.21.0
+streamlit==1.22.0
 streamlit-lottie==0.0.3
 langchain==0.0.138
 faiss-cpu==1.7.2
